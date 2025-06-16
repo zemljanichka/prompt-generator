@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .prompt-section {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        .generated-characters {
+            background-color: #e8f4f8;
+            color: #0d6efd;
+            font-weight: 500;
+        }
+        .prompt-container {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            background-color: white;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .prompt-header {
+            font-weight: bold;
+            color: #495057;
+        }
+        .control-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .copy-btn:focus {
+            box-shadow: none;
+        }
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- Control Panel -->
+                <div class="control-panel mb-4">
+                    <div class="row">
+                        <!-- Language Selection -->
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="language" class="form-label">Language</label>
+                                <select class="form-select" id="language" name="lang" required>
+                                    <option value="en">English</option>
+                                    <option value="ru" {% if lang == "ru" %}selected{% endif %}>Russian</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- AI Model Selection -->
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label class="form-label">AI Model</label>
+                                <select class="form-select" id="aiModel">
+                                    <option value="yandexGPT">YandexGPT</option>
+                                    <option value="gigaChat">GigaChat</option>
+                                    <option value="chatGPT">ChatGPT</option>
+                                    <option value="lmStudio">LM Studio</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Batch Size</label>
+                                <input type="number" class="form-control" id="batchSize" value="1" min="1" max="100000">
+                            </div>
+                        </div>
+                        
+                        <!-- Additional Controls -->
+                        <div class="col-md-4">
+                            <div class="btn-group-vertical w-100">
+                                <button type="button" class="btn btn-outline-primary" id="sendToAIBtn">Send to AI</button>
+                                <button type="button" class="btn btn-outline-info" disabled>View Analytics (Coming Soon)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Prompt Section -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div id="promptDisplay" class="prompt-container">
+                            <button class="btn btn-outline-secondary copy-btn" id="copyBtn" title="Copy to clipboard">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
+                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                </svg>
+                            </button>
+                            <div class="prompt-section" id="descriptionSection"></div>
+                            <div class="prompt-section">
+                                <div class="prompt-header" id="case1Header"></div>
+                                <span id="case1Description"></span>
+                                <span class="generated-characters" id="case1Characters"></span>
+                            </div>
+                            <div class="prompt-section">
+                                <div class="prompt-header" id="case2Header"></div>
+                                <span id="case2Description"></span>
+                                <span class="generated-characters" id="case2Characters"></span>
+                            </div>
+                            <div class="prompt-section" id="endingSection"></div>
+                        </div>
+                        <!-- Hidden textarea for copying -->
+                        <textarea class="form-control d-none" id="generatedPrompt" readonly>{{ initial_prompt }}</textarea>
+                        <!-- Hidden input for characters data -->
+                        <input type="hidden" id="charactersData" value='{{ initial_characters | tojson }}'>
+                    </div>
+                </div>
+
+                <!-- Edit Form Section -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="form-header">
+                            <h5 class="card-title mb-0">Edit Prompt</h5>
+                            <button type="button" class="btn btn-primary" id="updateBtn">Generate/Update Prompt</button>
+                        </div>
+                        <form id="promptForm">
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" rows="3" placeholder="Enter custom description or leave empty for default"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="case1" class="form-label">Case 1</label>
+                                <textarea class="form-control" id="case1" rows="2" placeholder="Enter custom case 1 or leave empty for default"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="case2" class="form-label">Case 2</label>
+                                <textarea class="form-control" id="case2" rows="2" placeholder="Enter custom case 2 or leave empty for default"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ending" class="form-label">Ending (Optional)</label>
+                                <textarea class="form-control" id="ending" rows="2" placeholder="Enter optional ending text"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('promptForm');
+            const updateBtn = document.getElementById('updateBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const generatedPromptArea = document.getElementById('generatedPrompt');
+            const languageSelect = document.getElementById('language');
+            const descriptionField = document.getElementById('description');
+            const case1Field = document.getElementById('case1');
+            const case2Field = document.getElementById('case2');
+            const endingField = document.getElementById('ending');
+            const aiModel = document.getElementById('aiModel');
+            const batchSize = document.getElementById('batchSize');
+            const sendToAIBtn = document.getElementById('sendToAIBtn');
+
+            // Display sections
+            const descriptionSection = document.getElementById('descriptionSection');
+            const case1Header = document.getElementById('case1Header');
+            const case1Description = document.getElementById('case1Description');
+            const case1Characters = document.getElementById('case1Characters');
+            const case2Header = document.getElementById('case2Header');
+            const case2Description = document.getElementById('case2Description');
+            const case2Characters = document.getElementById('case2Characters');
+            const endingSection = document.getElementById('endingSection');
+
+            // Get characters data
+            const charactersData = JSON.parse(document.getElementById('charactersData').value);
+
+            // Function to highlight characters in text
+            function highlightCharacters(text, characters) {
+                if (!characters) return text;
+                
+                // Split characters into individual items
+                const characterList = characters.split(/,\s*|\s+и\s+|\s+and\s+/);
+                
+                // Sort by length in descending order to handle longer phrases first
+                characterList.sort((a, b) => b.length - a.length);
+                
+                let result = text;
+                for (const char of characterList) {
+                    if (!char.trim()) continue;
+                    
+                    // Escape special characters for regex
+                    const escapedChar = char.trim()
+                        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    
+                    // Create regex pattern for the individual character
+                    const pattern = new RegExp(`(${escapedChar})`, 'g');
+                    
+                    // Replace matches with highlighted version
+                    result = result.replace(pattern, '<span class="generated-characters">$1</span>');
+                }
+                
+                return result;
+            }
+
+            // Function to update the display sections
+            function updateDisplaySections(promptText, characters) {
+                // Split the prompt into sections
+                const sections = promptText.split('\n\n');
+                
+                // Update description
+                const description = sections[0];
+                descriptionSection.textContent = description;
+                
+                // Update Case 1
+                const case1Parts = sections[1].split('.');
+                const case1HeaderText = case1Parts[0] + '.';
+                case1Header.textContent = case1HeaderText;
+                const case1Content = case1Parts.slice(1).join('.').trim();
+                
+                let case1AfterChars = '';
+                // Find the exact pedestrian set in case 1
+                if (characters?.case1) {
+                    const [beforeChars, afterChars] = case1Content.split(characters.case1);
+                    if (beforeChars !== undefined && afterChars !== undefined) {
+                        case1Description.textContent = beforeChars;
+                        case1Characters.textContent = characters.case1;
+                        case1AfterChars = afterChars;
+                    } else {
+                        case1Description.textContent = case1Content;
+                        case1Characters.textContent = '';
+                    }
+                } else {
+                    case1Description.textContent = case1Content;
+                    case1Characters.textContent = '';
+                }
+                
+                // Update Case 2
+                const case2Parts = sections[2].split('.');
+                const case2HeaderText = case2Parts[0] + '.';
+                case2Header.textContent = case2HeaderText;
+                const case2Content = case2Parts.slice(1).join('.').trim();
+                
+                let case2AfterChars = '';
+                // Find the exact pedestrian set in case 2
+                if (characters?.case2) {
+                    const [beforeChars, afterChars] = case2Content.split(characters.case2);
+                    if (beforeChars !== undefined && afterChars !== undefined) {
+                        case2Description.textContent = beforeChars;
+                        case2Characters.textContent = characters.case2;
+                        case2AfterChars = afterChars;
+                    } else {
+                        case2Description.textContent = case2Content;
+                        case2Characters.textContent = '';
+                    }
+                } else {
+                    case2Description.textContent = case2Content;
+                    case2Characters.textContent = '';
+                }
+                
+                // Update ending if exists
+                const ending = sections.length > 3 ? sections[3] : '';
+                endingSection.textContent = ending;
+
+                // Update the hidden textarea with reconstructed prompt
+                const reconstructedPrompt = [
+                    description,
+                    [
+                        case1HeaderText,
+                        case1Description.textContent.trim(),
+                        case1Characters.textContent,
+                        case1AfterChars
+                    ].filter(Boolean).join(''),
+                    [
+                        case2HeaderText,
+                        case2Description.textContent.trim(),
+                        case2Characters.textContent,
+                        case2AfterChars
+                    ].filter(Boolean).join(''),
+                    ending
+                ].filter(Boolean).join('\n\n');
+
+                generatedPromptArea.value = reconstructedPrompt;
+
+                // For debugging
+                console.log('Received prompt:', promptText);
+                console.log('Received characters:', characters);
+                console.log('Reconstructed prompt:', reconstructedPrompt);
+            }
+
+            // Initialize display with initial prompt and characters
+            updateDisplaySections(generatedPromptArea.value, charactersData);
+
+            // Handle copy button animation
+            copyBtn.addEventListener('click', function() {
+                // Get the displayed text from all sections
+                const description = descriptionSection.textContent;
+                const case1Text = [
+                    case1Header.textContent,
+                    case1Description.textContent.trim(),
+                    case1Characters.textContent,
+                ].join('');
+                const case2Text = [
+                    case2Header.textContent,
+                    case2Description.textContent.trim(),
+                    case2Characters.textContent,
+                ].join('');
+                const ending = endingSection.textContent;
+
+                // Construct the full prompt
+                const fullPrompt = [
+                    description,
+                    case1Text,
+                    case2Text,
+                    ending
+                ].filter(Boolean).join('\n\n');
+
+                // Copy to clipboard
+                navigator.clipboard.writeText(fullPrompt)
+                    .then(() => {
+                        const originalHtml = this.innerHTML;
+                        this.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard-check" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                            </svg>
+                        `;
+                        setTimeout(() => {
+                            this.innerHTML = originalHtml;
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy text:', err);
+                        alert('Failed to copy text to clipboard');
+                    });
+            });
+
+            // Handle language change - reload page with new language
+            languageSelect.addEventListener('change', function() {
+                window.location.href = `{{api_path}}/?lang=${this.value}`;
+            });
+
+            // Update form submission handler to use updateBtn
+            updateBtn.addEventListener('click', async function() {
+                try {
+                    // Get values from form fields
+                    const data = {
+                        description: descriptionField.value.trim(),
+                        case1: case1Field.value.trim(),
+                        case2: case2Field.value.trim(),
+                        ending: endingField.value.trim(),
+                        lang: languageSelect.value
+                    };
+
+                    // Remove empty fields to use defaults from backend
+                    Object.keys(data).forEach(key => {
+                        if (data[key] === '' && key !== 'lang') {
+                            delete data[key];
+                        }
+                    });
+
+                    console.log('Sending data:', data);
+
+                    const response = await fetch('{{api_path}}/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('Received result:', result);
+
+                    if (result.prompt && result.characters) {
+                        // Update the display with new prompt and characters
+                        updateDisplaySections(result.prompt, result.characters);
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error updating prompt: ' + error.message);
+                }
+            });
+
+            // Handle sending to AI
+            sendToAIBtn.addEventListener('click', async function() {
+                try {
+                    // Get current prompt text
+                    const description = descriptionField.value.trim() || descriptionSection.textContent;
+                    const case1Text = case1Field.value.trim() || 
+                        case1Description.textContent.trim();
+                    const case2Text = case2Field.value.trim() || 
+                        case2Description.textContent.trim();
+                    const ending = endingField.value.trim() || endingSection.textContent;
+
+                    const body = {
+                        base_description: description,
+                        case1_description: case1Text,
+                        case2_description: case2Text,
+                        ending: ending,
+                    };
+
+                    const params = new URLSearchParams({
+                        batch_size: batchSize.value,
+                        model: aiModel.value,
+                        lang: languageSelect.value
+                    });
+                    console.log(body);
+                    
+                    // Show loading state
+                    const originalText = this.textContent;
+                    this.textContent = 'Sending...';
+                    this.disabled = true;
+
+                    // Send request to startup endpoint
+                    const response = await fetch('{{api_path}}/startup?' + params.toString(), {
+                        body: JSON.stringify(body), 
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json;charset=utf-8'
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('Received result:', result.response);
+                    // Handle successful response
+                    if (result.status === 'accepted') {
+                        this.textContent = 'Sent Successfully!';
+                        // Show response in modal as formatted JSON
+                        const responseModal = new bootstrap.Modal(document.getElementById('responseModal'));
+                        const responseText = result.response 
+                            ? JSON.stringify(result.response, null, 2) // Convert to formatted JSON string with indentation
+                            : 'No response text provided';
+                        document.getElementById('responseText').textContent = responseText;
+                        responseModal.show();
+                        setTimeout(() => {
+                            this.textContent = originalText;
+                            this.disabled = false;
+                        }, 2000);
+                    } else {
+                        throw new Error(result.error || 'Unknown error occurred');
+                    }
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error sending to AI: ' + error.message);
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }
+            });
+
+            // Add batch size validation
+            batchSize.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                if (value < 1) this.value = 1;
+                if (value > 100000) this.value = 100000;
+            });
+        });
+    </script>
+    <!-- Add this to the end of the <body> section, just before the closing </body> tag -->
+<div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="responseModalLabel">AI Response</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="responseText" class="p-3 bg-light border rounded"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html> 

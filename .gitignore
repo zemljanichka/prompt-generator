@@ -1,0 +1,6 @@
+.idea
+*venv*
+*.csv
+__pycache__
+*.pyc
+*.crt
