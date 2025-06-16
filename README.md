@@ -1,4 +1,4 @@
-# Moral-LLM
+# Prompt-generator
 
 A FastAPI-based service for generating and processing scenarios for research of moral bias of LLM
 
@@ -6,12 +6,12 @@ A FastAPI-based service for generating and processing scenarios for research of 
 
 1. Clone the repository:
  ```
-   git clone https://github.com/
+   git clone https://github.com/zemljanichka/prompt-generator
  ```
 
 2. Install the dependencies:
  ```
- cd moral_llm
+ cd prompt-generator
  pip install -r requirements.txt
  ```
 
