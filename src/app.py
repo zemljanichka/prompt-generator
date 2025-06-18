@@ -7,14 +7,11 @@ from typing import Optional, Dict
 from pydantic import BaseModel
 import random
 
-from utils.generator import generate_scenarios_characters
-from utils.lang import get_localized_data
-from utils.prompt import construct_prompt
-from utils.i18n import setup_i18n
+from utils import generate_scenarios_characters, get_localized_data, construct_prompt, setup_i18n, get_yandex_token
 from api_clients import YandexGPTClient, GigaChatClient
 
 
-app = FastAPI(title="Moral LLM API")
+app = FastAPI(title="Prompt generator")
 
 API_URL = os.environ.get('API_URL', 'http://localhost:8000')
 
@@ -62,7 +59,7 @@ def generate_prompt_text(lang: str, description: Optional[str] = None, case1: Op
     dimension = random.choice(["species", "social_value", "gender", "age", "fitness", "utilitarianism", "random"])
     
     # Generate pedestrian sets
-    pedestrians_set_1, pedestrians_set_2 = generate_scenarios_characters(lang, dimension)
+    pedestrians_set_1, pedestrians_set_2, scenario_info = generate_scenarios_characters(lang, dimension)
     
     # Get all language-specific strings
     (
@@ -101,7 +98,8 @@ def generate_prompt_text(lang: str, description: Optional[str] = None, case1: Op
         characters={
             "case1": pedestrians_set_1,
             "case2": pedestrians_set_2
-        }
+        },
+        scenario_info=scenario_info
     )
 
 @app.get("/")
@@ -179,11 +177,9 @@ async def send_prompt(
     Returns:
         dict: Response status
     """
-    #results = []
-    # TODO: Implement AI model integration
     if model == "yandexGPT":
         catalog_id = os.environ.get("CATALOG_ID_YANDEXGPT")
-        api_key = os.environ.get("API_KEY_YANDEXGPT")
+        api_key = get_yandex_token()
         assert catalog_id and api_key, 'no keys specified...'
 
         client = YandexGPTClient(catalog_id, api_key)

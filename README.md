@@ -9,16 +9,18 @@ A FastAPI-based service for generating and processing scenarios for research of 
    git clone https://github.com/zemljanichka/prompt-generator
  ```
 
-2. Install the dependencies:
+2. Fill .env file:
  ```
- cd prompt-generator
- pip install -r requirements.txt
+AUTH_KEY_YANDEXGPT=     # OAuth-token yandexgpt
+CATALOG_ID_YANDEXGPT=   # Yandexgpt catalog id
+API_KEY_GIGACHAT=       # Api-key for gigachat
  ```
 
 ### Running the Server
-To start the development server using uvicorn:
+
+To start the development server using docker:
  ```
- uvicorn main:app --reload
+ docker-compose up --build
  ```
 
 The API will be available at: http://localhost:8000

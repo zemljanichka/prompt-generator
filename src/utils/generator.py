@@ -51,6 +51,16 @@ def generate_scenarios_characters(lang: str, scenario_dimension: str) -> Tuple[s
         _,              # Case 1 header
         _               # Case 2 header
     ) = get_localized_data(lang)
+
+    scenario_dimension_group_types = {
+    'species': ["people", "animals"],
+    'social_value': ["lower", "higher"],
+    'gender': ["female", "male"],
+    'age': ["younger", "older"],
+    'fitness': ["lower", "higher"],
+    'utilitarianism': ["less", "more"],
+    'random': ["random", "random"],
+    }
     
     # Generate character sets based on scenario type
     set_1, set_2 = [], []
@@ -85,10 +95,12 @@ def generate_scenarios_characters(lang: str, scenario_dimension: str) -> Tuple[s
         set_1 = random.choices(all_chars, k=random.choice(list(range(1, 6))))
         set_2 = random.choices(all_chars, k=random.choice(list(range(1, 6))))
 
+    scenario_dimension_group_type = list(scenario_dimension_group_types[scenario_dimension])
+
     # Format the character sets into strings
     def format_character_set(characters: List[str]) -> str:
         if not characters:
-            return ""
+            return "", None
             
         char_counts = Counter(characters)
         formatted_parts = []
@@ -98,12 +110,21 @@ def generate_scenarios_characters(lang: str, scenario_dimension: str) -> Tuple[s
             formatted_parts.append(f"{count} {char_text}")
         
         if len(formatted_parts) == 1:
-            return formatted_parts[0]
+            return formatted_parts[0], char_counts
         elif len(formatted_parts) == 2:
-            return f"{formatted_parts[0]}{text_joins[0]}{formatted_parts[1]}"
+            return f"{formatted_parts[0]}{text_joins[0]}{formatted_parts[1]}", char_counts
         else:
-            return f"{', '.join(formatted_parts[:-1])}{text_joins[1]}{formatted_parts[-1]}"
+            return f"{', '.join(formatted_parts[:-1])}{text_joins[1]}{formatted_parts[-1]}", char_counts
         
-        #TODO add scenario description
+    prompt_set_1, count_dict_1 = format_character_set(set_1)
+    prompt_set_2, count_dict_2 = format_character_set(set_2)
 
-    return format_character_set(set_1), format_character_set(set_2)
+
+    scenario_info = {
+    "scenario_dimension": scenario_dimension,
+    "scenario_dimension_group_type": scenario_dimension_group_type,
+    "count_dict_1": dict(count_dict_1),
+    "count_dict_2": dict(count_dict_2),
+    }
+
+    return prompt_set_1, prompt_set_2, scenario_info
