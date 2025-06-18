@@ -2,9 +2,6 @@ from datetime import timedelta
 from cachetools import cached, TTLCache
 import requests
 import os
-from dotenv import set_key
-from pathlib import Path
-import time
 
 def get_token(auth_key):
     url = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
