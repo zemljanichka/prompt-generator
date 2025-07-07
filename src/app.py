@@ -3,11 +3,12 @@ import csv
 from fastapi import FastAPI, Request, Query, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import StreamingResponse
 from typing import Optional, Dict
 from pydantic import BaseModel
 import random
 
-from utils import generate_scenarios_characters, get_localized_data, construct_prompt, setup_i18n, get_yandex_token
+from utils import generate_scenarios_characters, get_localized_data, construct_prompt, setup_i18n, get_yandex_token, convert_csv, S3Client
 from api_clients import YandexGPTClient, GigaChatClient
 
 
@@ -38,6 +39,7 @@ class PromptUpdate(BaseModel):
 class PromptResponse(BaseModel):
     prompt: str
     characters: Dict[str, str]
+    scenario_info: Dict
 
 def generate_prompt_text(lang: str, description: Optional[str] = None, case1: Optional[str] = None, case2: Optional[str] = None, ending: Optional[str] = "") -> PromptResponse:
     """
@@ -177,6 +179,13 @@ async def send_prompt(
     Returns:
         dict: Response status
     """
+
+    model_version = ''
+    responses_list = []
+    model_answer = ''
+    final_prompt = ''
+    scenario_info = {}
+
     if model == "yandexGPT":
         catalog_id = os.environ.get("CATALOG_ID_YANDEXGPT")
         api_key = get_yandex_token()
@@ -203,6 +212,16 @@ async def send_prompt(
         else:
             print("\nCould not retrieve a response.")
             raise HTTPException(status_code=500)
+        
+        model_version = f'{model}-{response["result"]["modelVersion"]}' 
+        model_answer = response['result']['alternatives'][0]['message']['text']
+        final_prompt = system_content + user_content
+        scenario_info = prompt.scenario_info
+
+        responses_list.append({'model_answer': model_answer,
+                               'prompt': final_prompt,
+                               'scenario_info': scenario_info})
+
 
     elif model == "gigaChat":
         api_key = os.environ.get("API_KEY_GIGACHAT")
@@ -229,8 +248,26 @@ async def send_prompt(
             print("\nCould not retrieve a response.")
             raise HTTPException(status_code=500)
         
+        model_version = f'{model}-{response["model"]}' 
+        model_answer = response['choices'][0]['message']['content']
+        final_prompt = user_content
+        scenario_info = prompt.scenario_info
+
+        responses_list.append({'model_answer': model_answer,
+                               'prompt': final_prompt,
+                               'scenario_info': scenario_info})
+        
     elif model == "chatGPT":
         pass
+
+    filename, data = convert_csv(model_version, responses_list, lang)
+     
+    is_ok = S3Client.save(data=data, object_name=filename)
+    if is_ok:
+        print("----Fine----")
+    else:
+        print("----bad----")
+
     
     return {
         "status": "accepted",
@@ -240,3 +277,45 @@ async def send_prompt(
         "response": response,
         "prompt": prompt.prompt,
     }
+
+@app.get("/files")
+async def get_files(request: Request):
+     files = S3Client.get_objects()
+     if request.headers.get("accept", "").startswith("text/html"):
+        return templates.TemplateResponse(
+            "files.html",
+            {
+                "request": request,
+                "files": files,
+                "api_path": API_URL,
+            }
+        )
+     
+@app.get('/download')
+async def get_file(filename: str):
+    try:
+        # Скачиваем файл из S3
+        file = S3Client.download(filename)
+        body = file['content']['Body']
+        
+        # Устанавливаем заголовки для скачивания
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "text/csv"
+        }
+        
+        # Потоковая передача файла
+        return StreamingResponse(
+            content=body.iter_chunks(),
+            media_type="text/csv",
+            headers=headers
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"File not found: {str(e)}")
+
+@app.delete('/delete')
+async def delete_file(filenames: list[str] = Body(..., description="files to delete")):
+    try:
+        S3Client.delete(filenames)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

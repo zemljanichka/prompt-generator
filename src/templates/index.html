@@ -92,7 +92,7 @@
                         <div class="col-md-4">
                             <div class="btn-group-vertical w-100">
                                 <button type="button" class="btn btn-outline-primary" id="sendToAIBtn">Send to AI</button>
-                                <button type="button" class="btn btn-outline-info" disabled>View Analytics (Coming Soon)</button>
+                                <button type="button" class="btn btn-outline-info" id="showFilesBtn">Show files</button>
                             </div>
                         </div>
                     </div>
@@ -177,6 +177,7 @@
             const aiModel = document.getElementById('aiModel');
             const batchSize = document.getElementById('batchSize');
             const sendToAIBtn = document.getElementById('sendToAIBtn');
+            const showFilesBtn = document.getElementById('showFilesBtn')
 
             // Display sections
             const descriptionSection = document.getElementById('descriptionSection');
@@ -474,6 +475,10 @@
                     this.textContent = originalText;
                     this.disabled = false;
                 }
+            });
+
+            showFilesBtn.addEventListener('click', async function() {
+                window.location.href = `{{api_path}}/files`;
             });
 
             // Add batch size validation

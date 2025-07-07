@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .file-table-container {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 70px; /* Space for fixed bottom bar */
+            margin-top: 10px
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .form-check-input {
+            margin-right: 0.5rem;
+        }
+        .fixed-bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 1rem;
+            z-index: 1000;
+        }
+        .fixed-bottom-bar .btn-group .btn {
+            margin-right: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <button type="button" class="btn btn-outline-primary" id="backBtn">Back to generator</button>
+                <span></span>
+                <!-- File List Table -->
+                <div class="file-table-container">
+                    <h5 class="mb-3">Available Files</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th scope="col"><input type="checkbox" id="selectAll"></th>
+                                    <th scope="col">File Name</th>
+                                    <th scope="col">Size</th>
+                                    <th scope="col">Last Modified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td><input type="checkbox" class="form-check-input file-select" data-filename="{{ file.name }}"></td>
+                                    <td>{{ file.name }}</td>
+                                    <td>{{ file.size }} KB</td>
+                                    <td>{{ file.last_modified }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixed Bottom Control Panel -->
+    <div class="fixed-bottom-bar">
+        <div class="container">
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary" id="plotSelectedBtn" disabled>Plot Selected</button>
+                <button type="button" class="btn btn-danger" id="deleteSelectedBtn" disabled>Delete Selected</button>
+                <button type="button" class="btn btn-info" id="downloadSelectedBtn" disabled>Download Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const fileCheckboxes = document.querySelectorAll('.file-select');
+            const downloadBtn = document.getElementById('downloadSelectedBtn');
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+            const plotBtn = document.getElementById('plotSelectedBtn');
+            const backBtn = document.getElementById('backBtn');
+
+            // Toggle all checkboxes
+            selectAllCheckbox.addEventListener('change', () => {
+                fileCheckboxes.forEach(checkbox => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+                updateButtonStates();
+            });
+
+            // Update button states based on selection
+            fileCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateButtonStates);
+            });
+
+            function updateButtonStates() {
+                const checkedCount = document.querySelectorAll('.file-select:checked').length;
+                downloadBtn.disabled = checkedCount === 0;
+                deleteBtn.disabled = checkedCount === 0;
+                plotBtn.disabled = checkedCount === 0;
+            }
+
+            // Download selected files
+            downloadBtn.addEventListener('click', async function() {
+                const selectedFiles = Array.from(document.querySelectorAll('.file-select:checked'))
+                    .map(checkbox => checkbox.dataset.filename);
+                for (const filename of selectedFiles) {
+                    try {
+                        // Создаем временный элемент <a>
+                        const link = document.createElement('a');
+                        link.href = `/download?filename=${encodeURIComponent(filename)}`;
+                        link.download = filename; // Указываем имя файла для скачивания
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (error) {
+                        alert(`Ошибка при скачивании ${filename}: ${error.message}`);
+                    }
+                    // 
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            });
+
+            // Delete selected files
+            deleteBtn.addEventListener('click', async () => {
+                const selectedFiles = Array.from(document.querySelectorAll('.file-select:checked'))
+                    .map(checkbox => checkbox.dataset.filename);
+                if (selectedFiles.length === 0) {
+                    alert('Выберите хотя бы один файл для удаления');
+                    return;
+                }
+                if (confirm(`Вы уверены, что хотите удалить ${selectedFiles.length} файл(ов)?`)) {
+                    try {
+                        const response = await fetch('/delete', {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(selectedFiles)
+                        });
+                        if (response.ok) {
+                            // Удаляем строки из таблицы для всех успешно удаленных файлов
+                            selectedFiles.forEach(filename => {
+                                const row = document.querySelector(`.file-select[data-filename="${filename}"]`);
+                                if (row) {
+                                    row.closest('tr').remove();
+                                }
+                            });
+                            updateButtonStates();
+                        } else {
+                            const errorData = await response.json();
+                            alert(`Ошибка при удалении: ${errorData.detail || 'Неизвестная ошибка'}`);
+                        }
+                    } catch (error) {
+                        alert(`Ошибка при удалении файлов: ${error.message}`);
+                    }
+                }
+            });
+
+            // Plot selected files (placeholder for plot functionality)
+            plotBtn.addEventListener('click', () => {
+                const selectedFiles = Array.from(document.querySelectorAll('.file-select:checked'))
+                    .map(checkbox => checkbox.dataset.filename);
+                alert(`Plotting functionality for ${selectedFiles.join(', ')} to be implemented`);
+                // Add your plotting logic here, possibly redirecting to a new endpoint
+                // window.location.href = `/plot?files=${selectedFiles.join(',')}`;
+            });
+
+            backBtn.addEventListener('click', async function() {
+                window.location.href = `{{api_path}}/`;
+            });
+        });
+    </script>
+</body>
+</html>
